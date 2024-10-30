@@ -288,7 +288,7 @@ app.post('/post/linkedin', async (req, res) => {
 // Route to render a simple page with "Connect to Facebook" and "Connect to LinkedIn" buttons
 app.get('/', (req, res) => {
     res.send(`
-        <h1>Welcome to the Social Media Poster</h1>
+        <h1>Welcome to the Social Media </h1>
         <a href="/auth/facebook">Connect your Facebook Page</a><br/>
         <a href="/auth/linkedin">Connect your LinkedIn Account</a>
     `);
