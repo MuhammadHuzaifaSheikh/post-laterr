@@ -168,28 +168,32 @@ const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
 const InstagramStrategy = require('passport-instagram').Strategy;
-require('dotenv').config();
 
 const app = express();
 
+// Instagram API credentials (hardcoded)
+const INSTAGRAM_CLIENT_ID = '515169714623407';
+const INSTAGRAM_CLIENT_SECRET = '21051d5b74d919d623350c914a881f93';
+const INSTAGRAM_VERIFY_TOKEN = 'thryve_instagram_verify_2024';
+const INSTAGRAM_CALLBACK_URL = 'https://post-latter.vercel.app/instagram/callback';
+const SESSION_SECRET = 'some_random_string';
+const NODE_ENV = 'development';
+
 // Add headers middleware
 app.use((req, res, next) => {
-  // Set custom User-Agent and ngrok warning skip header
   req.headers['user-agent'] = 'instagram-login-app';
   req.headers['ngrok-skip-browser-warning'] = 'true';
-  
-  // Response headers
+
   res.setHeader('ngrok-skip-browser-warning', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'ngrok-skip-browser-warning, Origin, Content-Type, Accept, User-Agent');
   res.setHeader('User-Agent', 'instagram-login-app');
-  
-  // Handle preflight requests
+
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-  
+
   next();
 });
 
@@ -205,7 +209,7 @@ app.get('/webhook', (req, res) => {
   const challenge = req.query['hub.challenge'];
 
   if (mode && token) {
-    if (mode === 'subscribe' && token === process.env.INSTAGRAM_VERIFY_TOKEN) {
+    if (mode === 'subscribe' && token === INSTAGRAM_VERIFY_TOKEN) {
       console.log('WEBHOOK_VERIFIED');
       res.status(200).send(challenge);
     } else {
@@ -216,21 +220,17 @@ app.get('/webhook', (req, res) => {
 
 // Deauthorize callback endpoint
 app.post('/instagram/deauthorize', (req, res) => {
-  // Handle user deauthorization
   console.log('User deauthorized the app:', req.body);
-  // Here you would typically remove user data from your database
   res.status(200).send('Deauthorization successful');
 });
 
 // Data deletion request endpoint
 app.post('/instagram/data-deletion', (req, res) => {
-  // Handle data deletion request
   console.log('Data deletion request received:', req.body);
-  // Here you would typically implement user data deletion logic
   res.status(200).json({
     message: 'Data deletion request received',
     status: 'success',
-    url: 'https://your-confirmation-url.com' // Replace with your actual confirmation URL
+    url: 'https://your-confirmation-url.com'
   });
 });
 
@@ -242,12 +242,12 @@ passport.deserializeUser((obj, done) => {
   done(null, obj);
 });
 
-// Configure dynamic Instagram Strategy
+// Configure Instagram Strategy
 app.use((req, res, next) => {
   const baseUrl = getBaseUrl(req);
   passport.use(new InstagramStrategy({
-      clientID: process.env.INSTAGRAM_CLIENT_ID,
-      clientSecret: process.env.INSTAGRAM_CLIENT_SECRET,
+      clientID: INSTAGRAM_CLIENT_ID,
+      clientSecret: INSTAGRAM_CLIENT_SECRET,
       callbackURL: `${baseUrl}/auth/instagram/callback`,
       scope: [
         'instagram_business_basic',
@@ -266,14 +266,14 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json()); // For parsing application/json
+app.use(express.json()); 
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'your_session_secret',
+  secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    secure: NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000
   }
 }));
 
@@ -283,7 +283,7 @@ app.use(passport.session());
 // Home route with Instagram business login button
 app.get('/', (req, res) => {
   const baseUrl = getBaseUrl(req);
-  const loginUrl = `https://www.instagram.com/oauth/authorize?enable_fb_login=0&force_authentication=1&client_id=${process.env.INSTAGRAM_CLIENT_ID}&redirect_uri=${encodeURIComponent(baseUrl + '/auth/instagram/callback')}&response_type=code&scope=${encodeURIComponent('instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish,instagram_business_manage_insights')}`;
+  const loginUrl = `https://www.instagram.com/oauth/authorize?enable_fb_login=0&force_authentication=1&client_id=${INSTAGRAM_CLIENT_ID}&redirect_uri=${encodeURIComponent(baseUrl + '/auth/instagram/callback')}&response_type=code&scope=${encodeURIComponent('instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish,instagram_business_manage_insights')}`;
   
   res.send(`
     <html>
@@ -292,54 +292,27 @@ app.get('/', (req, res) => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
         <title>Instagram Business Login</title>
-        <script>
-          // Add headers to all requests
-          const originalFetch = window.fetch;
-          window.fetch = function(url, options = {}) {
-            if (!options.headers) {
-              options.headers = {};
-            }
-            options.headers['ngrok-skip-browser-warning'] = 'true';
-            options.headers['user-agent'] = 'instagram-login-app';
-            return originalFetch(url, options);
-          };
-
-          // Add headers to XHR requests
-          const originalXHR = window.XMLHttpRequest;
-          window.XMLHttpRequest = function() {
-            const xhr = new originalXHR();
-            const originalOpen = xhr.open;
-            xhr.open = function() {
-              const result = originalOpen.apply(xhr, arguments);
-              xhr.setRequestHeader('ngrok-skip-browser-warning', 'true');
-              xhr.setRequestHeader('user-agent', 'instagram-login-app');
-              return result;
-            };
-            return xhr;
-          };
-        </script>
       </head>
       <body>
         <h1>Instagram Business Login Demo</h1>
         <p>Current callback URL: ${baseUrl}/auth/instagram/callback</p>
         <a href="${loginUrl}">
-          <button>Login with Instagram Businesss</button>
+          <button>Login with Instagram Business</button>
         </a>
       </body>
     </html>
   `);
 });
 
-// OAuth callback URL.
+// OAuth callback URL
 app.get('/auth/instagram/callback', 
   passport.authenticate('instagram', { failureRedirect: '/' }),
   (req, res) => {
-    // Successful authentication, redirect to profile.
     res.redirect('/profile');
   }
 );
 
-// A protected route to display user profile information.
+// Protected profile route
 app.get('/profile', (req, res) => {
   if (!req.user) {
     return res.redirect('/');
@@ -351,32 +324,6 @@ app.get('/profile', (req, res) => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
         <title>Profile - Instagram Business</title>
-        <script>
-          // Add headers to all requests
-          const originalFetch = window.fetch;
-          window.fetch = function(url, options = {}) {
-            if (!options.headers) {
-              options.headers = {};
-            }
-            options.headers['ngrok-skip-browser-warning'] = 'true';
-            options.headers['user-agent'] = 'instagram-login-app';
-            return originalFetch(url, options);
-          };
-
-          // Add headers to XHR requests
-          const originalXHR = window.XMLHttpRequest;
-          window.XMLHttpRequest = function() {
-            const xhr = new originalXHR();
-            const originalOpen = xhr.open;
-            xhr.open = function() {
-              const result = originalOpen.apply(xhr, arguments);
-              xhr.setRequestHeader('ngrok-skip-browser-warning', 'true');
-              xhr.setRequestHeader('user-agent', 'instagram-login-app');
-              return result;
-            };
-            return xhr;
-          };
-        </script>
       </head>
       <body>
         <h1>Hello, ${req.user.username || 'Business User'}</h1>
@@ -387,7 +334,7 @@ app.get('/profile', (req, res) => {
   `);
 });
 
-// Logout route.
+// Logout route
 app.get('/logout', (req, res) => {
   req.logout(function(err) {
     if (err) {
@@ -397,12 +344,8 @@ app.get('/logout', (req, res) => {
   });
 });
 
-// Start the server.
+// Start the server
 app.listen(3000, () => {
   console.log('Server started on http://localhost:3000');
-  console.log('Make sure you have set up your .env file with the required credentials');
-  console.log('\nIMPORTANT: Use your ngrok URL in the Instagram Developer Console:');
-  console.log('- OAuth redirect URI: [ngrok-url]/auth/instagram/callback');
-  console.log('- Deauthorize Callback URL: [ngrok-url]/instagram/deauthorize');
-  console.log('- Data Deletion Request URL: [ngrok-url]/instagram/data-deletion');
 });
+
