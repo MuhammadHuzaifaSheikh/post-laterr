@@ -323,7 +323,7 @@ app.get('/', (req, res) => {
         <h1>Instagram Business Login Demo</h1>
         <p>Current callback URL: ${baseUrl}/auth/instagram/callback</p>
         <a href="${loginUrl}">
-          <button>Login with Instagram Business Account</button>
+          <button>Login with Instagram Businesss</button>
         </a>
       </body>
     </html>
