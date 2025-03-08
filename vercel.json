@@ -1,6 +1,7 @@
 {
     "rewrites": [
-      { "source": "/api/(.*)", "destination": "/index.js" }
+      { "source": "/auth/(.*)", "destination": "/index.js" },
+      { "source": "/post/(.*)", "destination": "/index.js" }
     ],
     "builds": [
       {
@@ -9,5 +10,5 @@
       }
     ]
   }
-  
+
 

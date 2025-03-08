@@ -1,302 +1,408 @@
-// index.js
 
-require('dotenv').config()
+// require('dotenv').config()
+
+// const express = require('express');
+// const axios = require('axios');
+// const cookieParser = require('cookie-parser');
+// const qs = require('qs');
+
+// const app = express();
+// app.use(express.json());
+// app.use(cookieParser());
+
+
+
+// // Replace with your LinkedIn Client ID and Secret  
+// const LINKEDIN_CLIENT_ID = process.env.LINKEDIN_CLIENT_ID;
+// const LINKEDIN_CLIENT_SECRET = process.env.LINKEDIN_CLIENT_SECRET;
+
+
+
+// const isProduction = false;
+// const Base_Url = isProduction ? 'https://post-latter.vercel.app' : 'http://localhost:3000';
+
+
+
+// // ===================== LinkedIn Authentication ===================== //
+
+// // Step 1: Route to initiate LinkedIn Login
+// app.get('/auth/linkedin', (req, res) => {
+
+//   const redirectUri = Base_Url + '/auth/linkedin/callback';
+//   const scope = 'profile%20openid%20email';
+//   const state = 'DCEeFWf45A53sdfKef424'; // Ideally, generate a random string for security
+
+//   const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}`;
+
+//   res.redirect(authUrl);
+// })
+
+// // Step 2: LinkedIn OAuth Callback
+// app.get('/auth/linkedin/callback', async (req, res) => {
+//   const redirectUri = Base_Url + '/auth/linkedin/callback';
+//   const { code, state } = req.query;
+//   const frontendUrl = 'https://app.inceptiontoaction.co.uk'
+
+
+//   if (!code) {
+//     return res.status(400).send('Authorization code not provided');
+//   }
+
+//   try {
+//     // Exchange code for an Access Token
+//     const tokenResponse = await axios.post(
+//       'https://www.linkedin.com/oauth/v2/accessToken',
+//       qs.stringify({
+//         grant_type: 'authorization_code',
+//         code,
+//         redirect_uri: redirectUri,
+//         client_id: LINKEDIN_CLIENT_ID,
+//         client_secret: LINKEDIN_CLIENT_SECRET,
+//       }),
+//       {
+//         headers: {
+//           'Content-Type': 'application/x-www-form-urlencoded',
+//         },
+//       }
+//     );
+
+//     const accessToken = tokenResponse.data.access_token;
+
+//     console.log('accessToken',accessToken)
+
+//     // Get User's LinkedIn ID
+//     const profileResponse = await axios.get('https://api.linkedin.com/v2/userinfo', {
+//       headers: {
+//         Authorization: `Bearer ${accessToken}`,
+//       },
+//     });
+
+//     const linkedInId = profileResponse.data.sub;
+//     let userTokens = {
+//       accessToken,
+//       linkedInId
+//     }
+
+//     console.log('profileResponse',profileResponse)
+
+//     // try {
+//     //   const saveUserLinkedInToken = async (req, res) => {
+//     //     const email = linkedinEmail
+
+
+//     //     // res.status(200).json({email:email ,userToken:userToken});
+
+//     //     try {
+
+//     //       await User.findOneAndUpdate(
+//     //         { email },
+//     //         {
+//     //           userLinkedInToken: userTokens
+//     //         },
+//     //         {
+//     //           new: true,
+//     //         }
+//     //       );
+
+//     //     } catch (error) {
+//     //       console.log(error);
+
+//     //     }
+//     //   };
+
+//     //   saveUserLinkedInToken()
+
+//     // } catch (error) {
+
+//     // }
+//     // console.log(userTokens);
+
+
+//     // console.log('user data',profileResponse.data)  // you can save linkedin user data in database
+
+//     // // Store the LinkedIn Access Token
+
+
+//     // res.redirect(`${frontendUrl}/authstatus?status=success`);
+
+//     res.send('success')
+
+//   } catch (error) {
+//     console.error('Error during LinkedIn OAuth:', error.response?.data || error.message);
+//     // res.redirect(`${frontendUrl}/authstatus?status=error`);
+//     res.send('error')
+
+//   }
+// });
+
+
+
+
+
+// // ===================== General Routes ===================== //
+
+// // Route to render a simple page with "Connect to Facebook" and "Connect to LinkedIn" buttons
+// app.get('/', (req, res) => {
+//     res.send(`
+//         <h1>Welcome to the Social Media </h1>
+//         <a href="/auth/facebook">Connect your Facebook Page</a><br/>
+//         <a href="/auth/linkedin">Connect your LinkedIn Account</a>
+//     `);
+// });
+
+
+// // Your WordPress site and credentials
+
+
+// // Start the server
+// const PORT = process.env.PORT || 3000;
+// app.listen(PORT, () => {
+//     console.log(`Server is running on port ${PORT}`);
+// });-
+
+
+
+
 
 const express = require('express');
-const axios = require('axios');
-const cookieParser = require('cookie-parser');
-const qs = require('qs');
+const session = require('express-session');
+const passport = require('passport');
+const InstagramStrategy = require('passport-instagram').Strategy;
+require('dotenv').config();
 
 const app = express();
-app.use(express.json());
-app.use(cookieParser());
 
-// Replace with your Facebook App ID and Secret
-const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID;
-const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET;
-
-// Replace with your LinkedIn Client ID and Secret  
-const LINKEDIN_CLIENT_ID = process.env.LINKEDIN_CLIENT_ID;
-const LINKEDIN_CLIENT_SECRET = process.env.LINKEDIN_CLIENT_SECRET;
-
-// In-memory storage for demo purposes (use a database in production)
-let userTokens = {};
-let currentUserId = ''; // This should store the user ID when connecting to an account
-
-// ===================== Facebook Authentication ===================== //
-
-// Step 1: Route to initiate Facebook Login
-app.get('/auth/facebook', (req, res) => {
-    const redirectUri = 'http://localhost:3000/auth/facebook/callback';
-    const scope = [
-        'public_profile',
-        'pages_manage_posts',
-        'pages_show_list',
-        'pages_read_engagement',
-    ].join(',');
-
-    const authUrl = `https://www.facebook.com/v17.0/dialog/oauth?client_id=${FACEBOOK_APP_ID}&redirect_uri=${encodeURIComponent(
-        redirectUri
-    )}&scope=${scope}&response_type=code&auth_type=rerequest`;
-
-    res.redirect(authUrl);
+// Add headers middleware
+app.use((req, res, next) => {
+  // Set custom User-Agent and ngrok warning skip header
+  req.headers['user-agent'] = 'instagram-login-app';
+  req.headers['ngrok-skip-browser-warning'] = 'true';
+  
+  // Response headers
+  res.setHeader('ngrok-skip-browser-warning', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'ngrok-skip-browser-warning, Origin, Content-Type, Accept, User-Agent');
+  res.setHeader('User-Agent', 'instagram-login-app');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
 });
 
-// Step 2: Facebook OAuth Callback
-app.get('/auth/facebook/callback', async (req, res) => {
-    const redirectUri = 'http://localhost:3000/auth/facebook/callback';
-    const { code } = req.query;
+// Helper function to get base URL
+const getBaseUrl = (req) => {
+  return `${req.protocol}://${req.get('host')}`;
+};
 
-    if (!code) {
-        return res.status(400).send('Authorization code not provided');
+// Instagram API Verification Endpoint
+app.get('/webhook', (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  if (mode && token) {
+    if (mode === 'subscribe' && token === process.env.INSTAGRAM_VERIFY_TOKEN) {
+      console.log('WEBHOOK_VERIFIED');
+      res.status(200).send(challenge);
+    } else {
+      res.sendStatus(403);
     }
-
-    try {
-        // Exchange code for a User Access Token
-        const tokenResponse = await axios.get(
-            `https://graph.facebook.com/v17.0/oauth/access_token`,
-            {
-                params: {
-                    client_id: FACEBOOK_APP_ID,
-                    redirect_uri: redirectUri,
-                    client_secret: FACEBOOK_APP_SECRET,
-                    code,
-                },
-            }
-        );
-
-        const userAccessToken = tokenResponse.data.access_token;
-
-        // Get User ID
-        const userProfile = await axios.get(`https://graph.facebook.com/me`, {
-            params: {
-                access_token: userAccessToken,
-            },
-        });
-
-        const userId = userProfile.data.id;
-        currentUserId = userId;
-
-        // Get Pages Managed by User
-        const pagesResponse = await axios.get(
-            `https://graph.facebook.com/${userId}/accounts`,
-            {
-                params: {
-                    access_token: userAccessToken,
-                },
-            }
-        );
-
-        const pages = pagesResponse.data.data;
-
-        if (pages.length === 0) {
-            return res.status(400).send('No pages found for this user.');
-        }
-
-        // For simplicity, select the first page (you can let the user choose)
-        const page = pages[0];
-
-        // Store the Page Access Token
-        if (!userTokens[userId]) {
-            userTokens[userId] = {};
-        }
-        userTokens[userId].facebook = {
-            pageId: page.id,
-            pageAccessToken: page.access_token,
-        };
-
-        // Set a cookie to identify the user (use proper authentication in production)
-        res.cookie('userId', userId, { httpOnly: true });
-
-        res.send(
-            `Facebook authentication successful! Page "${page.name}" connected. You can now make posts.`
-        );
-    } catch (error) {
-        console.error('Error during Facebook OAuth:', error.response?.data || error.message);
-        res.status(500).send('Authentication failed.');
-    }
+  }
 });
 
-// Step 3: POST endpoint to create a Facebook page post
-app.post('/post/facebook', async (req, res) => {
-    if (!userTokens[currentUserId]?.facebook) {
-        return res.status(401).json({ error: 'User not authenticated with Facebook.' });
-    }
-
-    const { message, link } = req.body;
-
-    if (!message && !link) {
-        return res.status(400).json({ error: 'Message or link is required.' });
-    }
-
-    try {
-        const { pageId, pageAccessToken } = userTokens[currentUserId].facebook;
-
-        const response = await axios.post(
-            `https://graph.facebook.com/${pageId}/feed`,
-            qs.stringify({
-                message,
-                link,
-                access_token: pageAccessToken,
-            }),
-            {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-            }
-        );
-
-        return res.status(200).json({
-            success: true,
-            postId: response.data.id,
-        });
-    } catch (error) {
-        console.error('Error posting to Facebook:', error.response?.data || error.message);
-        return res.status(500).json({
-            success: false,
-            error: error.response?.data || error.message,
-        });
-    }
+// Deauthorize callback endpoint
+app.post('/instagram/deauthorize', (req, res) => {
+  // Handle user deauthorization
+  console.log('User deauthorized the app:', req.body);
+  // Here you would typically remove user data from your database
+  res.status(200).send('Deauthorization successful');
 });
 
-// ===================== LinkedIn Authentication ===================== //
-
-// Step 1: Route to initiate LinkedIn Login
-app.get('/auth/linkedin', (req, res) => {
-    const redirectUri = 'http://localhost:3000/auth/linkedin/callback';
-    const scope = 'profile%20openid%20w_member_social%20email';
-    const state = 'DCEeFWf45A53sdfKef424'; // Ideally, generate a random string for security
-
-    const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(  redirectUri )}&scope=${scope}&state=${state}`;
-
-    console.log(authUrl)
-    res.redirect(authUrl);
-})
-
-// Step 2: LinkedIn OAuth Callback
-app.get('/auth/linkedin/callback', async (req, res) => {
-    const redirectUri = 'http://localhost:3000/auth/linkedin/callback';
-    const { code, state } = req.query;
-
-    if (!code) {
-        return res.status(400).send('Authorization code not provided');
-    }
-
-    try {
-        // Exchange code for an Access Token
-        const tokenResponse = await axios.post(
-            'https://www.linkedin.com/oauth/v2/accessToken',
-            qs.stringify({
-                grant_type: 'authorization_code',
-                code,
-                redirect_uri: redirectUri,
-                client_id: LINKEDIN_CLIENT_ID,
-                client_secret: LINKEDIN_CLIENT_SECRET,
-            }),
-            {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-            }
-        );
-
-        const accessToken = tokenResponse.data.access_token;
-
-
-        // Get User's LinkedIn ID
-        const profileResponse = await axios.get('https://api.linkedin.com/v2/userinfo', {
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-            },
-        });
-
-        const linkedInId = profileResponse.data.sub;
-        currentUserId = linkedInId;
-
-        // console.log('user data',profileResponse.data)  // you can save linkedin user data in database
-
-        // // Store the LinkedIn Access Token
-        if (!userTokens[currentUserId]) {
-            userTokens[currentUserId] = {};
-        }
-        userTokens[currentUserId].linkedin = {
-            linkedInId,
-            accessToken,
-        };
-
-        res.send('LinkedIn authentication successful! You can now make posts.');
-    } catch (error) {
-        console.error('Error during LinkedIn OAuth:', error.response?.data || error.message);
-        res.status(500).send('LinkedIn authentication failed.');
-    }
+// Data deletion request endpoint
+app.post('/instagram/data-deletion', (req, res) => {
+  // Handle data deletion request
+  console.log('Data deletion request received:', req.body);
+  // Here you would typically implement user data deletion logic
+  res.status(200).json({
+    message: 'Data deletion request received',
+    status: 'success',
+    url: 'https://your-confirmation-url.com' // Replace with your actual confirmation URL
+  });
 });
 
-// Step 3: POST endpoint to create a LinkedIn post
-app.post('/post/linkedin', async (req, res) => {
-    const { message } = req.body;
-
-    if (!message) {
-        return res.status(400).json({ error: 'Message is required.' });
-    }
-
-    if (!userTokens[currentUserId]?.linkedin) {
-        return res.status(401).json({ error: 'User not authenticated with LinkedIn.' });
-    }
-
-    try {
-        const { linkedInId, accessToken } = userTokens[currentUserId].linkedin;
-
-        // Post content using new LinkedIn posts API
-        const postResponse = await axios.post(
-            'https://api.linkedin.com/rest/posts',
-            {
-                author: `urn:li:person:${linkedInId}`,
-                commentary: message,
-                visibility: "PUBLIC",
-                lifecycleState: "PUBLISHED",
-                distribution: {
-                    feedDistribution: "MAIN_FEED",
-                },
-            },
-            {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json',
-                    'LinkedIn-Version': '202401',
-                    'X-Restli-Protocol-Version': '2.0.0',
-                },
-            }
-        );
-
-        return res.status(200).json({
-            success: true,
-            postId: postResponse.data.id,
-        });
-    } catch (error) {
-        console.error('Error posting to LinkedIn:', error.response?.data || error.message);
-        return res.status(500).json({
-            success: false,
-            error: error.response?.data || error.message,
-        });
-    }
+// Configure Passport session setup.
+passport.serializeUser((user, done) => {
+  done(null, user);
+});
+passport.deserializeUser((obj, done) => {
+  done(null, obj);
 });
 
+// Configure dynamic Instagram Strategy
+app.use((req, res, next) => {
+  const baseUrl = getBaseUrl(req);
+  passport.use(new InstagramStrategy({
+      clientID: process.env.INSTAGRAM_CLIENT_ID,
+      clientSecret: process.env.INSTAGRAM_CLIENT_SECRET,
+      callbackURL: `${baseUrl}/auth/instagram/callback`,
+      scope: [
+        'instagram_business_basic',
+        'instagram_business_manage_messages',
+        'instagram_business_manage_comments',
+        'instagram_business_content_publish',
+        'instagram_business_manage_insights'
+      ]
+    },
+    function(accessToken, refreshToken, profile, done) {
+      profile.accessToken = accessToken;
+      profile.refreshToken = refreshToken;
+      return done(null, profile);
+    }
+  ));
+  next();
+});
 
+app.use(express.json()); // For parsing application/json
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your_session_secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
 
-// ===================== General Routes ===================== //
+app.use(passport.initialize());
+app.use(passport.session());
 
-// Route to render a simple page with "Connect to Facebook" and "Connect to LinkedIn" buttons
+// Home route with Instagram business login button
 app.get('/', (req, res) => {
-    res.send(`
-        <h1>Welcome to the Social Media </h1>
-        <a href="/auth/facebook">Connect your Facebook Page</a><br/>
-        <a href="/auth/linkedin">Connect your LinkedIn Account</a>
-    `);
+  const baseUrl = getBaseUrl(req);
+  const loginUrl = `https://www.instagram.com/oauth/authorize?enable_fb_login=0&force_authentication=1&client_id=${process.env.INSTAGRAM_CLIENT_ID}&redirect_uri=${encodeURIComponent(baseUrl + '/auth/instagram/callback')}&response_type=code&scope=${encodeURIComponent('instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish,instagram_business_manage_insights')}`;
+  
+  res.send(`
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <title>Instagram Business Login</title>
+        <script>
+          // Add headers to all requests
+          const originalFetch = window.fetch;
+          window.fetch = function(url, options = {}) {
+            if (!options.headers) {
+              options.headers = {};
+            }
+            options.headers['ngrok-skip-browser-warning'] = 'true';
+            options.headers['user-agent'] = 'instagram-login-app';
+            return originalFetch(url, options);
+          };
+
+          // Add headers to XHR requests
+          const originalXHR = window.XMLHttpRequest;
+          window.XMLHttpRequest = function() {
+            const xhr = new originalXHR();
+            const originalOpen = xhr.open;
+            xhr.open = function() {
+              const result = originalOpen.apply(xhr, arguments);
+              xhr.setRequestHeader('ngrok-skip-browser-warning', 'true');
+              xhr.setRequestHeader('user-agent', 'instagram-login-app');
+              return result;
+            };
+            return xhr;
+          };
+        </script>
+      </head>
+      <body>
+        <h1>Instagram Business Login Demo</h1>
+        <p>Current callback URL: ${baseUrl}/auth/instagram/callback</p>
+        <a href="${loginUrl}">
+          <button>Login with Instagram Business</button>
+        </a>
+      </body>
+    </html>
+  `);
 });
 
-// Start the server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+// OAuth callback URL.
+app.get('/auth/instagram/callback', 
+  passport.authenticate('instagram', { failureRedirect: '/' }),
+  (req, res) => {
+    // Successful authentication, redirect to profile.
+    res.redirect('/profile');
+  }
+);
+
+// A protected route to display user profile information.
+app.get('/profile', (req, res) => {
+  if (!req.user) {
+    return res.redirect('/');
+  }
+  res.send(`
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <title>Profile - Instagram Business</title>
+        <script>
+          // Add headers to all requests
+          const originalFetch = window.fetch;
+          window.fetch = function(url, options = {}) {
+            if (!options.headers) {
+              options.headers = {};
+            }
+            options.headers['ngrok-skip-browser-warning'] = 'true';
+            options.headers['user-agent'] = 'instagram-login-app';
+            return originalFetch(url, options);
+          };
+
+          // Add headers to XHR requests
+          const originalXHR = window.XMLHttpRequest;
+          window.XMLHttpRequest = function() {
+            const xhr = new originalXHR();
+            const originalOpen = xhr.open;
+            xhr.open = function() {
+              const result = originalOpen.apply(xhr, arguments);
+              xhr.setRequestHeader('ngrok-skip-browser-warning', 'true');
+              xhr.setRequestHeader('user-agent', 'instagram-login-app');
+              return result;
+            };
+            return xhr;
+          };
+        </script>
+      </head>
+      <body>
+        <h1>Hello, ${req.user.username || 'Business User'}</h1>
+        <pre>${JSON.stringify(req.user, null, 2)}</pre>
+        <a href="/logout">Logout</a>
+      </body>
+    </html>
+  `);
 });
 
+// Logout route.
+app.get('/logout', (req, res) => {
+  req.logout(function(err) {
+    if (err) {
+      return next(err);
+    }
+    res.redirect('/');
+  });
+});
+
+// Start the server.
+app.listen(3000, () => {
+  console.log('Server started on http://localhost:3000');
+  console.log('Make sure you have set up your .env file with the required credentials');
+  console.log('\nIMPORTANT: Use your ngrok URL in the Instagram Developer Console:');
+  console.log('- OAuth redirect URI: [ngrok-url]/auth/instagram/callback');
+  console.log('- Deauthorize Callback URL: [ngrok-url]/instagram/deauthorize');
+  console.log('- Data Deletion Request URL: [ngrok-url]/instagram/data-deletion');
+});
