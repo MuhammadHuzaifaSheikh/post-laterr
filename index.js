@@ -295,9 +295,9 @@ app.get('/', (req, res) => {
       </head>
       <body>
         <h1>Instagram Business Login Demo</h1>
-        <p>Current callback URL: ${baseUrl}/auth/instagram/callback</p>
+        <p>Current callback URL: ${baseUrl}/instagram/callback</p>
         <a href="${loginUrl}">
-          <button>Login with Instagram</button>
+          <button>Login with Instagram Account</button>
         </a>
       </body>
     </html>
@@ -305,7 +305,7 @@ app.get('/', (req, res) => {
 });
 
 // OAuth callback URL
-app.get('/auth/instagram/callback', 
+app.get('/instagram/callback', 
   passport.authenticate('instagram', { failureRedirect: '/' }),
   (req, res) => {
     res.redirect('/profile');
