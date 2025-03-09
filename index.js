@@ -283,7 +283,7 @@ app.use(passport.session());
 // Home route with Instagram business login button
 app.get('/', (req, res) => {
   const baseUrl = getBaseUrl(req);
-  const loginUrl = `https://www.instagram.com/oauth/authorize?enable_fb_login=0&force_authentication=1&client_id=${INSTAGRAM_CLIENT_ID}&redirect_uri=${encodeURIComponent(baseUrl + '/auth/instagram/callback')}&response_type=code&scope=${encodeURIComponent('instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish,instagram_business_manage_insights')}`;
+  const loginUrl = `https://www.instagram.com/oauth/authorize?enable_fb_login=0&force_authentication=1&client_id=${INSTAGRAM_CLIENT_ID}&redirect_uri=${INSTAGRAM_CALLBACK_URL}&response_type=code&scope=${encodeURIComponent('instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish,instagram_business_manage_insights')}`;
   
   res.send(`
     <html>
@@ -297,7 +297,7 @@ app.get('/', (req, res) => {
         <h1>Instagram Business Login Demo</h1>
         <p>Current callback URL: ${baseUrl}/auth/instagram/callback</p>
         <a href="${loginUrl}">
-          <button>Login with Instagram Business</button>
+          <button>Login with Instagram</button>
         </a>
       </body>
     </html>
