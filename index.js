@@ -164,23 +164,23 @@
 
 
 const express = require('express');
-const session = require('express-session');
 const axios = require('axios');
+const FormData = require('form-data');
 
 const app = express();
 
-const INSTAGRAM_CLIENT_ID = '515169714623407';
-const INSTAGRAM_CLIENT_SECRET = '21051d5b74d919d623350c914a881f93';
+const INSTAGRAM_APP_ID = '515169714623407';
+const INSTAGRAM_APP_SECRET = '21051d5b74d919d623350c914a881f93';
 const INSTAGRAM_CALLBACK_URL = 'https://post-latter.vercel.app/instagram/callback';
 
 
-let accessToken = null; // Global variable to store access token
-
+let shortLivedAccessToken = null;
+let longLivedAccessToken = null;
 app.use(express.json());
 
 
 app.get('/', (req, res) => {
-  const loginUrl = `https://www.instagram.com/oauth/authorize?client_id=${INSTAGRAM_CLIENT_ID}&redirect_uri=${INSTAGRAM_CALLBACK_URL}&response_type=code&scope=instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish,instagram_business_manage_insights`;
+  const loginUrl = `https://www.instagram.com/oauth/authorize?enable_fb_login=0&force_authentication=1&client_id=515169714623407&redirect_uri=https://post-latter.vercel.app/instagram/callback&response_type=code&scope=instagram_business_basic%2Cinstagram_business_manage_messages%2Cinstagram_business_manage_comments%2Cinstagram_business_content_publish%2Cinstagram_business_manage_insights`;
   
   res.send(`
     <html>
@@ -189,7 +189,7 @@ app.get('/', (req, res) => {
         <title>Instagram Business</title>
       </head>
       <body>
-        <h1>Instagram Business Login</h1>
+        <h1>Instagram  Login</h1>
         <a href="${loginUrl}"><button>Login with Instagram</button></a>
       </body>
     </html>
@@ -199,30 +199,56 @@ app.get('/', (req, res) => {
 app.get('/instagram/callback', async (req, res) => {
   const { code } = req.query;
   if (!code) {
-    return res.status(400).send('Authorization code not found');
+    return res.status(400).json({ success: false, message: 'Authorization code not found' });
   }
-  
+
   try {
-    const response = await axios.post('https://api.instagram.com/oauth/access_token', null, {
-      params: {
-        client_id: INSTAGRAM_CLIENT_ID,
-        client_secret: INSTAGRAM_CLIENT_SECRET,
-        grant_type: 'authorization_code',
-        redirect_uri: INSTAGRAM_CALLBACK_URL,
-        code: code
+    // 1) Exchange authorization code for short-lived token
+    const form = new FormData();
+    form.append('client_id', INSTAGRAM_APP_ID);
+    form.append('client_secret', INSTAGRAM_APP_SECRET);
+    form.append('grant_type', 'authorization_code');
+    form.append('redirect_uri', INSTAGRAM_CALLBACK_URL);
+    form.append('code', code);
+
+    const shortTokenResponse = await axios.post(
+      'https://api.instagram.com/oauth/access_token',
+      form,
+      { headers: form.getHeaders() }
+    );
+
+    shortLivedAccessToken = shortTokenResponse.data.access_token;
+
+    // 2) Exchange short-lived token for long-lived token
+    const longTokenResponse = await axios.get(
+      'https://graph.instagram.com/access_token',
+      {
+        params: {
+          grant_type: 'ig_exchange_token',
+          client_secret: INSTAGRAM_APP_SECRET,
+          access_token: shortLivedAccessToken,
+        },
       }
-    });
-    
-    accessToken = response.data.access_token;
+    );
+
+    longLivedAccessToken = longTokenResponse.data.access_token;
+
+    // Redirect or show the token, as you like
     res.redirect('/profile');
   } catch (error) {
     console.error('Error fetching access token:', error.response?.data || error.message);
-    res.status(500).send('Failed to get access token');
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to get access token', 
+      error: error.response?.data || error.message 
+    });
   }
 });
 
+
+
 app.get('/profile', (req, res) => {
-  if (!accessToken) {
+  if (!longLivedAccessToken) {
     return res.redirect('/');
   }
   res.send(`
@@ -233,7 +259,7 @@ app.get('/profile', (req, res) => {
       </head>
       <body>
         <h1>Instagram Access Token</h1>
-        <p>${accessToken}</p>
+        <p>${longLivedAccessToken}</p>
         <a href="/logout">Logout</a>
       </body>
     </html>
@@ -241,7 +267,7 @@ app.get('/profile', (req, res) => {
 });
 
 app.get('/logout', (req, res) => {
-  accessToken = null;
+  longLivedAccessToken = null;
   res.redirect('/');
 });
 

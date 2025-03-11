@@ -1,14 +1,11 @@
 {
-    "rewrites": [
-      { "source": "/auth/(.*)", "destination": "/index.js" },
-      { "source": "/post/(.*)", "destination": "/index.js" }
-    ],
-    "builds": [
-      {
-        "src": "./index.js",
-        "use": "@vercel/node"
-      }
-    ]
-  }
-
-
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.js" }
+  ],
+  "builds": [
+    {
+      "src": "./index.js",
+      "use": "@vercel/node"
+    }
+  ]
+}
